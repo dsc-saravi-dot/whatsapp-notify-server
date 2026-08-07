@@ -5,7 +5,10 @@
 
 const express = require('express');
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const qrcodeTerminal = require('qrcode-terminal');
+const QRCode = require('qrcode');
+
+let latestQr = null; // holds the most recent QR string so /qr can render it as an image
 
 const app = express();
 app.use(express.json());
@@ -29,11 +32,13 @@ const client = new Client({
 // Prints a QR code in the server logs the first time you run this.
 // Scan it with WhatsApp > Linked Devices on the phone you want the bot to use.
 client.on('qr', (qr) => {
-  console.log('Scan this QR code with WhatsApp on your phone:');
-  qrcode.generate(qr, { small: true });
+  latestQr = qr;
+  console.log('New QR code generated. Visit /qr on your server URL to scan it as an image.');
+  qrcodeTerminal.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
+  latestQr = null;
   console.log('WhatsApp client is ready.');
 });
 
@@ -87,6 +92,24 @@ app.post('/notify', async (req, res) => {
 
 app.get('/', (req, res) => {
   res.send('WhatsApp notify server is running.');
+});
+
+// Visit this route in a browser to see a clean, scannable QR code image.
+// Refresh it if the code expires before you scan it.
+app.get('/qr', async (req, res) => {
+  if (!latestQr) {
+    return res.send(
+      'No QR code available right now. Either the client is already logged in, or it hasn\'t generated one yet — wait a few seconds and refresh.'
+    );
+  }
+  try {
+    const dataUrl = await QRCode.toDataURL(latestQr, { width: 400 });
+    res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
+      <img src="${dataUrl}" alt="WhatsApp QR code" />
+    </body></html>`);
+  } catch (err) {
+    res.status(500).send('Failed to render QR code: ' + err.message);
+  }
 });
 
 const PORT = process.env.PORT || 3000;
