@@ -95,17 +95,20 @@ app.get('/', (req, res) => {
 });
 
 // Visit this route in a browser to see a clean, scannable QR code image.
-// Refresh it if the code expires before you scan it.
+// Refreshes automatically so it never goes stale before you can scan it.
 app.get('/qr', async (req, res) => {
   if (!latestQr) {
     return res.send(
-      'No QR code available right now. Either the client is already logged in, or it hasn\'t generated one yet — wait a few seconds and refresh.'
+      `<html><head><meta http-equiv="refresh" content="3"></head><body style="font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;text-align:center;padding:0 20px;">
+        <p>No QR code available right now. Either the client is already logged in, or it hasn't generated one yet. This page refreshes automatically.</p>
+      </body></html>`
     );
   }
   try {
     const dataUrl = await QRCode.toDataURL(latestQr, { width: 400 });
-    res.send(`<html><body style="display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
+    res.send(`<html><head><meta http-equiv="refresh" content="5"></head><body style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;margin:0;font-family:sans-serif;">
       <img src="${dataUrl}" alt="WhatsApp QR code" />
+      <p style="color:#666;">This page refreshes automatically every 5 seconds. Keep WhatsApp's scanner open and pointed at this screen.</p>
     </body></html>`);
   } catch (err) {
     res.status(500).send('Failed to render QR code: ' + err.message);
